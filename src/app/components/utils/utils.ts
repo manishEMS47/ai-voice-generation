@@ -1,6 +1,7 @@
 //  API endpoints
 const SUBSCRIBE_API = "/api/v1/groq";
-const STREAM_API = "/api/v1/deepgram";
+// Unified TTS endpoint; the active provider is chosen server-side via TTS_PROVIDER.
+const STREAM_API = "/api/v1/tts";
 
 // Headers
 const JSON_HEADER = { "Content-Type": "application/json" };

@@ -1,46 +1,28 @@
 import { NextRequest } from "next/server";
-import { createClient } from "@deepgram/sdk";
+import { synthesizeDeepgram } from "../tts/providers/deepgram";
 
-const API_KEY = process.env.DEEPGRAM_API_KEY;
-if (!API_KEY) {
-  throw new Error("No API key provided");
-}
-const deepgram = createClient(API_KEY);
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
+/**
+ * Kept for backwards compatibility. New code should POST to /api/v1/tts, which
+ * dispatches to the provider chosen by TTS_PROVIDER. This route always uses
+ * Deepgram and shares the same implementation.
+ */
 export async function POST(req: NextRequest) {
-  const controller = new AbortController();
+  const raw = await req.text();
+  let text = raw;
+  try {
+    const parsed = JSON.parse(raw);
+    if (typeof parsed === "string") text = parsed;
+  } catch {
+    /* not JSON — use the raw body */
+  }
 
   try {
-    const { readable, writable } = new TransformStream();
-    const data = await req.text();
-
-    const response = await deepgram.speak.request(
-      { text: data },
-      {
-        model: "aura-perseus-en",
-        encoding: "linear16",
-        container: "wav",
-      }
-    );
-    const stream = await response.getStream();
-    if (!stream) return new Response("No stream available");
-
-    // Pipe the audio stream to the writable stream
-    stream.pipeTo(writable);
-
-    return new Response(readable, {
-      status: 200,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Content-Type": "audio/wav",
-        "Cache-Control": "no-cache, no-transform",
-        Connection: "keep-alive",
-      },
-    });
+    return await synthesizeDeepgram(text);
   } catch (error) {
     console.error("Error in text-to-speech function:", error);
-    throw error;
-  } finally {
-    controller.abort();
+    return new Response("Text-to-speech failed", { status: 500 });
   }
 }
